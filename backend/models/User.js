@@ -29,6 +29,10 @@ const userSchema = new mongoose.Schema(
       enum: ["member", "admin"],
       default: "member", // default role
     },
+    adminInviteCode: {
+      type: String,
+      default: null, // token for admin invitation, can be null
+    },
   },
   { timestamps: true }
 );
