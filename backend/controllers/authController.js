@@ -1,6 +1,7 @@
 const User = require("../models/User");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+const path = require("path");
 
 // Generate JWT token
 const generateToken = (userId) => {
@@ -12,7 +13,16 @@ const generateToken = (userId) => {
 // @access Public
 const registerUser = async (req, res) => {
   try {
-    const { name, email, password, profileImageUrl, adminInviteCode } = req.body;
+    console.log("Register request body:", req.body);
+    console.log("Register request file:", req.file);
+
+    const { name, email, password, adminInviteCode } = req.body;
+
+    // Profile image (if uploaded)
+    let profileImageUrl = null;
+    if (req.file) {
+      profileImageUrl = `${req.protocol}://${req.get("host")}/uploads/${req.file.filename}`;
+    }
 
     // Check required fields
     if (!name || !email || !password) {
@@ -44,7 +54,6 @@ const registerUser = async (req, res) => {
       role,
     });
 
-    // Return user data + token
     res.status(201).json({
       _id: user._id,
       name: user.name,
@@ -70,9 +79,8 @@ const loginUser = async (req, res) => {
       return res.status(400).json({ message: "Email and password are required" });
     }
 
-    // IMPORTANT: Use .select('+password') to include password field
-    const user = await User.findOne({ email }).select('+password');
-    
+    const user = await User.findOne({ email }).select("+password");
+
     if (!user) {
       return res.status(401).json({ message: "Invalid email or password" });
     }
@@ -101,12 +109,8 @@ const loginUser = async (req, res) => {
 // @access Private
 const getUserProfile = async (req, res) => {
   try {
-    // req.user is set by protect middleware
-    // No need for .select("-password") since password has select: false by default
     const user = await User.findById(req.user._id);
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
-    }
+    if (!user) return res.status(404).json({ message: "User not found" });
     res.status(200).json(user);
   } catch (err) {
     console.error("Get profile error:", err.message);
@@ -119,15 +123,20 @@ const getUserProfile = async (req, res) => {
 // @access Private
 const updateUserProfile = async (req, res) => {
   try {
-    // IMPORTANT: Use .select('+password') to include password field for comparison
-    const user = await User.findById(req.user._id).select('+password');
+    const user = await User.findById(req.user._id).select("+password");
     if (!user) return res.status(404).json({ message: "User not found" });
 
-    const { name, email, profileImageUrl, password } = req.body;
+    const { name, email, password } = req.body;
 
+    // Update text fields
     if (name) user.name = name;
     if (email) user.email = email;
-    if (profileImageUrl) user.profileImageUrl = profileImageUrl;
+
+    // If new image uploaded
+    if (req.file) {
+      user.profileImageUrl = `${req.protocol}://${req.get("host")}/uploads/${req.file.filename}`;
+    }
+
     if (password) {
       const salt = await bcrypt.genSalt(10);
       user.password = await bcrypt.hash(password, salt);
