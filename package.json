@@ -6,7 +6,7 @@
   "scripts": {
    
     "start": "npm run start --prefix backend",
-    "build":"npm install --prefix frontend/task && npm install --prefix backend && npm run build --prefix frontend/task"
+    "build":"npm install --prefix frontend/task --include=dev && npm install --prefix backend && npm run build --prefix frontend/task"
   },
   "repository": {
     "type": "git",
