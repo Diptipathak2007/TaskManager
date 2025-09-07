@@ -13,23 +13,21 @@ const app = express();
 // Database connection
 connectDB();
 
-// Middlewares to handle cors
+// Middleware to handle CORS
 app.use(cors({
     origin: process.env.CLIENT_URL || '*',
     methods: ['GET', 'POST', 'PUT', 'DELETE'],
     allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
-// Middleware to parse JSON
+// Middleware to parse JSON and URL-encoded data
 app.use(express.json({ limit: '10mb' }));
-
-// Middleware to parse URL-encoded data
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Serve static files (for uploaded profile photos)
+// Serve static files (e.g. profile photos)
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// Routes
+// API Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/tasks", taskRoutes);
@@ -40,6 +38,16 @@ app.use((error, req, res, next) => {
     console.error('Error:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
 });
+
+// Serve frontend in production
+if (process.env.NODE_ENV === 'production') {
+    const frontendPath = path.join(__dirname, '..', 'frontend', 'task', 'build');
+    app.use(express.static(frontendPath));
+
+    app.get('*', (req, res) => {
+        res.sendFile(path.resolve(frontendPath, 'index.html'));
+    });
+}
 
 // Start server
 const PORT = process.env.PORT || 5000;

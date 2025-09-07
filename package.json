@@ -1,0 +1,23 @@
+{
+  "name": "taskmanager",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+   
+    "start": "npm run start --prefix backend",
+    "build":"npm install --prefix frontend/task && npm install --prefix backend && npm run build --prefix frontend/task"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Diptipathak2007/TaskManager.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/Diptipathak2007/TaskManager/issues"
+  },
+  "homepage": "https://github.com/Diptipathak2007/TaskManager#readme"
+}
