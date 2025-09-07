@@ -2,6 +2,7 @@ require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const path = require("path");
+const fs = require('fs');
 const connectDB = require("./config/db");
 const authRoutes = require("./routes/authRoutes");
 const userRoutes = require("./routes/userRoutes");
@@ -18,7 +19,6 @@ app.use(cors({
     origin: true,
     credentials: true,
 }));
-
 
 // Middleware to parse JSON and URL-encoded data
 app.use(express.json({ limit: '10mb' }));
@@ -42,12 +42,16 @@ app.use((error, req, res, next) => {
 // Serve frontend in production
 if (process.env.NODE_ENV === 'production') {
     const frontendPath = path.join(__dirname, '..', 'frontend', 'task', 'dist');
-    app.use(express.static(frontendPath));
-
-    app.get('/:path(*)', (req, res) => {
+    console.log('Serving frontend from:', frontendPath);
+  
+    if (fs.existsSync(frontendPath)) {
+      app.use(express.static(frontendPath));
+      app.get(/^\/(?!api).*/, (req, res) => {
         res.sendFile(path.resolve(frontendPath, 'index.html'));
-    });
-
+      });
+    } else {
+      console.warn('Frontend path does not exist:', frontendPath);
+    }
 }
 
 // Start server
