@@ -15,10 +15,10 @@ connectDB();
 
 // Middleware to handle CORS
 app.use(cors({
-    origin: process.env.CLIENT_URL || '*',
-    methods: ['GET', 'POST', 'PUT', 'DELETE'],
-    allowedHeaders: ['Content-Type', 'Authorization']
+    origin: true,
+    credentials: true,
 }));
+
 
 // Middleware to parse JSON and URL-encoded data
 app.use(express.json({ limit: '10mb' }));
@@ -41,12 +41,13 @@ app.use((error, req, res, next) => {
 
 // Serve frontend in production
 if (process.env.NODE_ENV === 'production') {
-    const frontendPath = path.join(__dirname, '..', 'frontend', 'task', 'build');
+    const frontendPath = path.join(__dirname, '..', 'frontend', 'task', 'dist');
     app.use(express.static(frontendPath));
 
     app.get('*', (req, res) => {
         res.sendFile(path.resolve(frontendPath, 'index.html'));
     });
+
 }
 
 // Start server
