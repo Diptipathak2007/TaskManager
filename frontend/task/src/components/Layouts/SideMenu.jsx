@@ -37,7 +37,7 @@ const SideMenu = ({ activeMenu }) => {
           className="w-24 h-24  object-cover mb-2 border-2 border-white-300"
         />
         {user?.role === 'admin' && (
-          <span className="text-xs text-gray-500 bg-blue-600 mb-1 uppercase font-medium tracking-wide">
+          <span className="text-xs text-gray-500 mb-1 uppercase font-medium tracking-wide">
             Admin
           </span>
         )}

@@ -1,5 +1,6 @@
 const Task = require('../models/Task');
 const User = require('../models/User');
+const mongoose = require('mongoose');
 
 // @desc Get dashboard data for admin
 // @route GET /api/tasks/dashboard-data
@@ -95,7 +96,8 @@ const getDashboardData = async (req, res) => {
 // @access Private
 const getUserDashboardData = async (req, res) => {
     try {
-        const userId = req.user._id;
+        // Convert string ID from JWT to ObjectId for database queries
+        const userId = new mongoose.Types.ObjectId(req.user._id);
 
         // User's tasks count
         const totalTasks = await Task.countDocuments({ assignedTo: userId });
@@ -159,11 +161,11 @@ const getAllTasks = async (req, res) => {
         const filter = {};
         if (req.query.status) filter.status = req.query.status;
         if (req.query.priority) filter.priority = req.query.priority;
-        if (req.query.assignedTo) filter.assignedTo = req.query.assignedTo;
+        if (req.query.assignedTo) filter.assignedTo = new mongoose.Types.ObjectId(req.query.assignedTo);
 
         // If user is not admin, only show their tasks
         if (req.user.role !== 'admin') {
-            filter.assignedTo = req.user._id;
+            filter.assignedTo = new mongoose.Types.ObjectId(req.user._id);
         }
 
         const tasks = await Task.find(filter)
@@ -205,7 +207,8 @@ const getTaskById = async (req, res) => {
         }
 
         // Check if user can view this task
-        if (req.user.role !== 'admin' && task.assignedTo._id.toString() !== req.user._id.toString()) {
+        const userObjectId = new mongoose.Types.ObjectId(req.user._id);
+        if (req.user.role !== 'admin' && !task.assignedTo._id.equals(userObjectId)) {
             return res.status(403).json({ message: 'Not authorized to view this task' });
         }
 
@@ -216,9 +219,6 @@ const getTaskById = async (req, res) => {
     }
 };
 
-// @desc Create new task
-// @route POST /api/tasks
-// @access Private/Admin
 // @desc Create new task
 // @route POST /api/tasks
 // @access Private/Admin
@@ -241,8 +241,8 @@ const createTask = async (req, res) => {
         const task = await Task.create({
             title,
             description,
-            assignedTo,
-            createdBy: req.user._id,
+            assignedTo: new mongoose.Types.ObjectId(assignedTo),
+            createdBy: new mongoose.Types.ObjectId(req.user._id),
             priority: priority || 'medium',
             dueDate,
             todoChecklist: Array.isArray(todoChecklist) ? todoChecklist : [],
@@ -265,7 +265,6 @@ const createTask = async (req, res) => {
     }
 };
 
-
 // @desc Update task
 // @route PUT /api/tasks/:id
 // @access Private
@@ -278,15 +277,16 @@ const updateTask = async (req, res) => {
         }
 
         // Check permissions
+        const userObjectId = new mongoose.Types.ObjectId(req.user._id);
         const canUpdate = req.user.role === 'admin' || 
-                         task.assignedTo.toString() === req.user._id.toString() ||
-                         task.createdBy.toString() === req.user._id.toString();
+                         task.assignedTo.equals(userObjectId) ||
+                         task.createdBy.equals(userObjectId);
 
         if (!canUpdate) {
             return res.status(403).json({ message: 'Not authorized to update this task' });
         }
 
-        const { title, description, priority, dueDate, status } = req.body;
+        const { title, description, priority, dueDate, status, assignedTo } = req.body;
 
         // Update fields
         if (title) task.title = title;
@@ -294,6 +294,14 @@ const updateTask = async (req, res) => {
         if (priority) task.priority = priority;
         if (dueDate) task.dueDate = dueDate;
         if (status) task.status = status;
+        if (assignedTo) {
+            // Validate new assignedTo user exists
+            const assignedUser = await User.findById(assignedTo);
+            if (!assignedUser) {
+                return res.status(404).json({ message: 'Assigned user not found' });
+            }
+            task.assignedTo = new mongoose.Types.ObjectId(assignedTo);
+        }
 
         await task.save();
 
@@ -320,6 +328,14 @@ const deleteTask = async (req, res) => {
 
         if (!task) {
             return res.status(404).json({ message: 'Task not found' });
+        }
+
+        // Check permissions - only admin or task creator can delete
+        const userObjectId = new mongoose.Types.ObjectId(req.user._id);
+        const canDelete = req.user.role === 'admin' || task.createdBy.equals(userObjectId);
+
+        if (!canDelete) {
+            return res.status(403).json({ message: 'Not authorized to delete this task' });
         }
 
         await Task.findByIdAndDelete(req.params.id);
@@ -349,8 +365,8 @@ const updateTaskStatus = async (req, res) => {
         }
 
         // Check permissions
-        const canUpdate = req.user.role === 'admin' || 
-                         task.assignedTo.toString() === req.user._id.toString();
+        const userObjectId = new mongoose.Types.ObjectId(req.user._id);
+        const canUpdate = req.user.role === 'admin' || task.assignedTo.equals(userObjectId);
 
         if (!canUpdate) {
             return res.status(403).json({ message: 'Not authorized to update this task' });
@@ -377,9 +393,62 @@ const updateTaskStatus = async (req, res) => {
     }
 };
 
+// @desc Update task progress
+// @route PUT /api/tasks/:id/progress
+// @access Private
+const updateTaskProgress = async (req, res) => {
+    try {
+        const { progress } = req.body;
+
+        if (progress < 0 || progress > 100) {
+            return res.status(400).json({ message: 'Progress must be between 0 and 100' });
+        }
+
+        const task = await Task.findById(req.params.id);
+
+        if (!task) {
+            return res.status(404).json({ message: 'Task not found' });
+        }
+
+        // Check permissions
+        const userObjectId = new mongoose.Types.ObjectId(req.user._id);
+        const canUpdate = req.user.role === 'admin' || task.assignedTo.equals(userObjectId);
+
+        if (!canUpdate) {
+            return res.status(403).json({ message: 'Not authorized to update this task' });
+        }
+
+        task.progress = progress;
+
+        // Auto-update status based on progress
+        if (progress === 0) {
+            task.status = 'pending';
+        } else if (progress === 100) {
+            task.status = 'completed';
+            task.completedAt = new Date();
+        } else {
+            task.status = 'in-progress';
+        }
+
+        await task.save();
+
+        const updatedTask = await Task.findById(task._id)
+            .populate('assignedTo', 'name email profileImageUrl')
+            .populate('createdBy', 'name email profileImageUrl');
+
+        res.status(200).json({
+            message: 'Task progress updated successfully',
+            task: updatedTask
+        });
+    } catch (err) {
+        console.error("Update task progress error:", err.message);
+        res.status(500).json({ message: "Server error", error: err.message });
+    }
+};
+
 // @desc Update task checklist
-// @route PUT /api/tasks/:id/todo
-// @access Private/Admin
+// @route PUT /api/tasks/:id/checklist
+// @access Private
 const updateTaskChecklist = async (req, res) => {
     try {
         const { todoChecklist } = req.body;
@@ -394,7 +463,34 @@ const updateTaskChecklist = async (req, res) => {
             return res.status(404).json({ message: 'Task not found' });
         }
 
-        task.todoChecklist = todoChecklist; // ✅ Match schema field
+        // Check permissions
+        const userObjectId = new mongoose.Types.ObjectId(req.user._id);
+        const canUpdate = req.user.role === 'admin' || 
+                         task.assignedTo.equals(userObjectId) ||
+                         task.createdBy.equals(userObjectId);
+
+        if (!canUpdate) {
+            return res.status(403).json({ message: 'Not authorized to update this task' });
+        }
+
+        task.todoChecklist = todoChecklist;
+
+        // Auto-calculate progress based on completed checklist items
+        if (todoChecklist.length > 0) {
+            const completedItems = todoChecklist.filter(item => item.completed).length;
+            task.progress = Math.round((completedItems / todoChecklist.length) * 100);
+            
+            // Auto-update status based on progress
+            if (task.progress === 0) {
+                task.status = 'pending';
+            } else if (task.progress === 100) {
+                task.status = 'completed';
+                task.completedAt = new Date();
+            } else {
+                task.status = 'in-progress';
+            }
+        }
+
         await task.save();
 
         const updatedTask = await Task.findById(task._id)
@@ -411,6 +507,91 @@ const updateTaskChecklist = async (req, res) => {
     }
 };
 
+// @desc Get tasks assigned by current user (for admins/managers)
+// @route GET /api/tasks/created-by-me
+// @access Private
+const getTasksCreatedByMe = async (req, res) => {
+    try {
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 10;
+        const skip = (page - 1) * limit;
+        
+        const createdByObjectId = new mongoose.Types.ObjectId(req.user._id);
+        
+        // Filter options
+        const filter = { createdBy: createdByObjectId };
+        if (req.query.status) filter.status = req.query.status;
+        if (req.query.priority) filter.priority = req.query.priority;
+        if (req.query.assignedTo) filter.assignedTo = new mongoose.Types.ObjectId(req.query.assignedTo);
+
+        const tasks = await Task.find(filter)
+            .populate('assignedTo', 'name email profileImageUrl')
+            .populate('createdBy', 'name email profileImageUrl')
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(limit);
+
+        const totalTasks = await Task.countDocuments(filter);
+        const totalPages = Math.ceil(totalTasks / limit);
+
+        res.status(200).json({
+            tasks,
+            pagination: {
+                currentPage: page,
+                totalPages,
+                totalTasks,
+                hasMore: page < totalPages
+            }
+        });
+    } catch (err) {
+        console.error("Get tasks created by me error:", err.message);
+        res.status(500).json({ message: "Server error", error: err.message });
+    }
+};
+
+// @desc Add attachment to task
+// @route PUT /api/tasks/:id/attachments
+// @access Private
+const addTaskAttachment = async (req, res) => {
+    try {
+        const { attachmentUrl } = req.body;
+
+        if (!attachmentUrl) {
+            return res.status(400).json({ message: 'Attachment URL is required' });
+        }
+
+        const task = await Task.findById(req.params.id);
+
+        if (!task) {
+            return res.status(404).json({ message: 'Task not found' });
+        }
+
+        // Check permissions
+        const userObjectId = new mongoose.Types.ObjectId(req.user._id);
+        const canUpdate = req.user.role === 'admin' || 
+                         task.assignedTo.equals(userObjectId) ||
+                         task.createdBy.equals(userObjectId);
+
+        if (!canUpdate) {
+            return res.status(403).json({ message: 'Not authorized to update this task' });
+        }
+
+        task.attachments.push(attachmentUrl);
+        await task.save();
+
+        const updatedTask = await Task.findById(task._id)
+            .populate('assignedTo', 'name email profileImageUrl')
+            .populate('createdBy', 'name email profileImageUrl');
+
+        res.status(200).json({
+            message: 'Attachment added successfully',
+            task: updatedTask
+        });
+    } catch (err) {
+        console.error("Add task attachment error:", err.message);
+        res.status(500).json({ message: "Server error", error: err.message });
+    }
+};
 
 module.exports = {
     getDashboardData,
@@ -421,5 +602,8 @@ module.exports = {
     updateTask,
     deleteTask,
     updateTaskStatus,
-    updateTaskChecklist
+    updateTaskProgress,
+    updateTaskChecklist,
+    getTasksCreatedByMe,
+    addTaskAttachment
 };

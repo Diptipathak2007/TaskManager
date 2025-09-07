@@ -1,27 +1,32 @@
-import React, { useState } from 'react'
-import SideMenu from './SideMenu'
+import React, { useState } from "react";
+import SideMenu from "./SideMenu";
 
 const Navbar = ({ activeMenu }) => {
-  const [openSideMenu, setOpenSideMenu] = useState(false)
+  const [openSideMenu, setOpenSideMenu] = useState(false);
 
   return (
-    <div className="flex items-center justify-between px-6 py-4 bg-slate-200 text-white shadow-md relative">
-      <button
-        className="p-2 rounded-md hover:bg-gray-700 focus:outline-none text-2xl"
-        onClick={() => setOpenSideMenu(!openSideMenu)}
-      >
-        {openSideMenu ? '✖' : '☰'}
-      </button>
+    <nav className="flex items-center justify-between px-6 py-4 bg-blue-600 text-white shadow-md relative">
+      {/* Left Section: Hamburger + Title */}
+      <div className="flex items-center space-x-3">
+        <button
+          className="p-2 rounded-md hover:bg-blue-700 focus:outline-none text-2xl transition"
+          onClick={() => setOpenSideMenu(!openSideMenu)}
+        >
+          {openSideMenu ? "✖" : "☰"}
+        </button>
+        <h2 className="text-xl sm:text-2xl font-bold tracking-wide">
+          Task Manager
+        </h2>
+      </div>
 
-      <h2 className="text-lg font-bold">Expense Tracker</h2>
-
+      {/* Sidebar (mobile) */}
       {openSideMenu && (
-        <div className="absolute top-16 left-0 w-64 h-screen bg-slate-400 shadow-lg">
+        <div className="absolute top-16 left-0 w-64 h-screen bg-white shadow-lg border-r border-gray-200 z-50">
           <SideMenu activeMenu={activeMenu} />
         </div>
       )}
-    </div>
-  )
-}
+    </nav>
+  );
+};
 
-export default Navbar
+export default Navbar;

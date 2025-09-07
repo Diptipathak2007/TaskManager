@@ -27,7 +27,7 @@ const userSchema = new mongoose.Schema(
     role: {
       type: String,
       enum: ["member", "admin"],
-      default:"admin"
+      default:"member"
     },
     adminInviteCode: {
       type: String,
