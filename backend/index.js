@@ -3,6 +3,7 @@ import express from 'express';
 import mongoose from 'mongoose';
 import dotenv from 'dotenv';
 import morgan from 'morgan';
+import routes from './routes/index.js';
 
 dotenv.config();
 
@@ -26,6 +27,8 @@ const PORT = process.env.PORT || 8081;
 app.get("/",(req, res) => {
   res.status(200).json({ message: "Server is up and running!" });
 });
+
+app.use('/api-v1', routes);
 
 //error middleware
 app.use((err,req,res,next)=>{
