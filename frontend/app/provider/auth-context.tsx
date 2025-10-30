@@ -1,4 +1,4 @@
-import { createContext, useState } from "react";
+import { createContext, useState,useContext } from "react";
 import type { User } from "~/types";
 
 interface AuthContextType {
@@ -10,6 +10,12 @@ interface AuthContextType {
   logout: () => Promise<void>;
 }
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+const login=async (email: string, password: string) => {
+    // Implement login logic here
+}
+const logout=async () => {
+    // Implement logout logic here
+}
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const [user, setUser] = useState<User | null>(null);
@@ -18,4 +24,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     return <AuthContext.Provider value={{ user, isAuthenticated, isLoading, login, logout }}>{children}</AuthContext.Provider>;
 };
-   
+
+export const useAuth = () => {
+    const context = useContext(AuthContext);
+    if (context === undefined) {
+        throw new Error("useAuth must be used within an AuthProvider");
+    }
+    return context;
+}
