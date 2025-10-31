@@ -31,7 +31,8 @@ const registerUser = async (req, res) => {
 
     // Build verification link (adjust FRONTEND_URL as needed)
     const frontendBase = process.env.FRONTEND_URL || "http://localhost:3000";
-    const verificationLink = `${frontendBase}/verify?token=${verificationToken}`;
+    const verificationLink = `${frontendBase}/auth/verify-email?token=${verificationToken}`;
+
 
     const emailBody = `<p>Click <a href="${verificationLink}">here</a> to verify your email</p>`;
     const emailSubject = "Verify your email";
