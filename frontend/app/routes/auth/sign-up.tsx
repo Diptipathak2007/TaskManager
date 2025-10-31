@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useSignUpMutation } from "@/hooks/use-auth";
 import {
   Card,
   CardContent,
@@ -23,6 +24,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Eye, EyeOff } from "lucide-react";
+import { toast } from "sonner";
 
 const signUpSchema = z
   .object({
@@ -36,7 +38,7 @@ const signUpSchema = z
     message: "Passwords do not match",
   });
 
-type SignUpFormData = z.infer<typeof signUpSchema>;
+export type SignUpFormData = z.infer<typeof signUpSchema>;
 
 const Signup = () => {
   const form = useForm<SignUpFormData>({
@@ -52,8 +54,22 @@ const Signup = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
+  const { mutate, isPending } = useSignUpMutation();
+
   const handleOnSubmit = (values: SignUpFormData) => {
-    console.log("Form data:", values);
+    mutate(values, {
+      onSuccess: () => {
+        toast.success("Account created successfully");
+      },
+      onError: (error) => {
+        const errorMessage =
+          (error as any)?.response?.data?.message ||
+          (error as Error)?.message ||
+          "Sign up failed";
+        console.log("Sign up error:", error);
+        toast.error(errorMessage);
+      },
+    });
   };
 
   return (
@@ -142,7 +158,11 @@ const Signup = () => {
                           className="absolute inset-y-0 right-3 flex items-center text-slate-500 hover:text-sky-600 transition-colors"
                           tabIndex={-1}
                         >
-                          {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                          {showPassword ? (
+                            <EyeOff size={20} />
+                          ) : (
+                            <Eye size={20} />
+                          )}
                         </button>
                       </div>
                     </FormControl>
@@ -170,11 +190,17 @@ const Signup = () => {
                         />
                         <button
                           type="button"
-                          onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                          onClick={() =>
+                            setShowConfirmPassword(!showConfirmPassword)
+                          }
                           className="absolute inset-y-0 right-3 flex items-center text-slate-500 hover:text-sky-600 transition-colors"
                           tabIndex={-1}
                         >
-                          {showConfirmPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                          {showConfirmPassword ? (
+                            <EyeOff size={20} />
+                          ) : (
+                            <Eye size={20} />
+                          )}
                         </button>
                       </div>
                     </FormControl>
@@ -186,8 +212,9 @@ const Signup = () => {
               <Button
                 type="submit"
                 className="w-full h-11 bg-sky-600 hover:bg-sky-700 text-white font-semibold rounded-lg shadow-lg shadow-sky-200 transition-all duration-200 hover:shadow-xl hover:shadow-sky-300"
+                disabled={isPending}
               >
-                Sign Up
+                {isPending ? "Creating Account..." : "Sign Up"}
               </Button>
             </form>
           </Form>
